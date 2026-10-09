@@ -1,0 +1,626 @@
+﻿#PRAC 3 
+# 1. Import Required Libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.metrics import confusion_matrix, classification_report
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.callbacks import EarlyStopping
+
+
+# 2. Load Titanic Dataset
+df = sns.load_dataset("titanic")
+print("First 5 rows of the dataset:")
+print(df.head())
+print("\nDataset Information:")
+print(df.info())
+print("\nMissing Values:")
+print(df.isnull().sum())
+
+
+# 3. Select Required Columns
+# Rename/keep the required features
+df = df[["survived", "sex", "age", "sibsp", "parch", "fare", "embarked"]].copy()
+
+
+# 4. Handle Missing Values
+# Fill missing Age values with median
+df["age"] = df["age"].fillna(df["age"].median())
+# Fill missing Embarked values with mode
+df["embarked"] = df["embarked"].fillna(df["embarked"].mode()[0])
+print("\nMissing Values After Handling:")
+print(df.isnull().sum())
+
+
+# 5. Encode Categorical Variables
+# Encode Sex
+sex_encoder = LabelEncoder()
+df["sex"] = sex_encoder.fit_transform(df["sex"])
+# Encode Embarked
+embarked_encoder = LabelEncoder()
+df["embarked"] = embarked_encoder.fit_transform(df["embarked"])
+
+
+# 6. Separate Input and Target
+X = df.drop("survived", axis=1)
+y = df["survived"]
+
+
+# 7. Train-Test Split
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.20,
+    random_state=42,
+    stratify=y
+)
+
+
+# 8. Feature Scaling
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+
+# 9. Build Neural Network
+model = Sequential()
+# First hidden layer
+model.add(Dense(16, activation="relu", input_shape=(X_train.shape[1],)))
+# Dropout layer
+model.add(Dropout(0.2))
+# Second hidden layer
+model.add(Dense(8, activation="relu"))
+# Output layer
+model.add(Dense(1, activation="sigmoid"))
+
+
+# Display model architecture
+model.summary()
+
+
+# 10. Compile Model
+model.compile(
+    optimizer="adam",
+    loss="binary_crossentropy",
+    metrics=["accuracy"]
+)
+
+
+# 11. Early Stopping
+early_stop = EarlyStopping(
+    monitor="val_loss",
+    patience=10,
+    restore_best_weights=True
+)
+
+
+# 12. Train the Model
+history = model.fit(
+    X_train,
+    y_train,
+    validation_split=0.20,
+    epochs=100,
+    batch_size=16,
+    callbacks=[early_stop],
+    verbose=1
+)
+
+
+# 13. Evaluate Model
+test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
+print("\nTest Loss:", round(test_loss, 4))
+print("Test Accuracy:", round(test_accuracy, 4))
+
+
+# 14. Make Predictions
+y_probability = model.predict(X_test)
+# Convert probability into binary class
+y_pred = (y_probability >= 0.5).astype(int)
+
+
+# 15. Confusion Matrix
+cm = confusion_matrix(y_test, y_pred)
+print("\nConfusion Matrix:")
+print(cm)
+
+
+# 16. Classification Report
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
+
+
+# 17. Plot Accuracy and Loss
+plt.figure(figsize=(10, 4))
+# Accuracy graph
+plt.subplot(1, 2, 1)
+plt.plot(history.history["accuracy"], label="Train Accuracy")
+plt.plot(history.history["val_accuracy"], label="Validation Accuracy")
+plt.xlabel("Epoch")
+plt.ylabel("Accuracy")
+plt.title("Training and Validation Accuracy")
+plt.legend()
+
+
+# Loss graph
+plt.subplot(1, 2, 2)
+plt.plot(history.history["loss"], label="Train Loss")
+plt.plot(history.history["val_loss"], label="Validation Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.title("Training and Validation Loss")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+
+
+
+#prac6 
+# Cat and Dog Image Classification using CNN
+# TensorFlow / Keras
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import (
+    Conv2D,
+    MaxPooling2D,
+    Flatten,
+    Dense,
+    Dropout
+)
+
+
+# 1. Dataset Paths
+train_dir = "dataset/train"
+validation_dir = "dataset/validation"
+test_dir = "dataset/test"
+
+
+# 2. Basic Parameters
+IMG_SIZE = (150, 150)
+BATCH_SIZE = 32
+
+
+# 3. Load Training Dataset
+train_dataset = tf.keras.utils.image_dataset_from_directory(
+    train_dir,
+    image_size=IMG_SIZE,
+    batch_size=BATCH_SIZE,
+    class_names=["cats", "dogs"],
+    shuffle=True
+)
+
+
+# 4. Load Validation Dataset
+validation_dataset = tf.keras.utils.image_dataset_from_directory(
+    validation_dir,
+    image_size=IMG_SIZE,
+    batch_size=BATCH_SIZE,
+    class_names=["cats", "dogs"],
+    shuffle=False
+)
+
+
+# 5. Load Test Dataset
+test_dataset = tf.keras.utils.image_dataset_from_directory(
+    test_dir,
+    image_size=IMG_SIZE,
+    batch_size=BATCH_SIZE,
+    class_names=["cats", "dogs"],
+    shuffle=False
+)
+
+
+print("Class Names:", train_dataset.class_names)
+
+
+# 6. Normalize Pixel Values
+normalization_layer = tf.keras.layers.Rescaling(1.0 / 255)
+train_dataset = train_dataset.map(lambda x, y: (normalization_layer(x), y))
+validation_dataset = validation_dataset.map(lambda x, y: (normalization_layer(x), y))
+test_dataset = test_dataset.map(lambda x, y: (normalization_layer(x), y))
+
+
+# 7. Build CNN Model
+model = Sequential([
+    # Convolutional Layer 1
+    Conv2D(32, (3, 3), activation="relu", input_shape=(150, 150, 3)),
+    # Pooling Layer 1
+    MaxPooling2D((2, 2)),
+    # Convolutional Layer 2
+    Conv2D(64, (3, 3), activation="relu"),
+    # Pooling Layer 2
+    MaxPooling2D((2, 2)),
+    # Convolutional Layer 3
+    Conv2D(128, (3, 3), activation="relu"),
+    # Pooling Layer 3
+    MaxPooling2D((2, 2)),
+    # Convert feature maps into one-dimensional vector
+    Flatten(),
+    # Dense Layer
+    Dense(128, activation="relu"),
+    # Dropout
+    Dropout(0.5),
+    # Output Layer
+    Dense(1, activation="sigmoid")
+])
+
+
+# Display model architecture
+model.summary()
+
+
+# 8. Compile the Model
+model.compile(
+    optimizer="adam",
+    loss="binary_crossentropy",
+    metrics=["accuracy"]
+)
+
+
+# 9. Train the CNN
+history = model.fit(
+    train_dataset,
+    validation_data=validation_dataset,
+    epochs=10
+)
+
+
+# 10. Plot Training and Validation Accuracy
+plt.figure(figsize=(8, 5))
+plt.plot(history.history["accuracy"], label="Training Accuracy")
+plt.plot(history.history["val_accuracy"], label="Validation Accuracy")
+plt.title("Training vs Validation Accuracy")
+plt.xlabel("Epoch")
+plt.ylabel("Accuracy")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+# 11. Plot Training and Validation Loss
+plt.figure(figsize=(8, 5))
+plt.plot(history.history["loss"], label="Training Loss")
+plt.plot(history.history["val_loss"], label="Validation Loss")
+plt.title("Training vs Validation Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+# 12. Evaluate Model on Test Dataset
+test_loss, test_accuracy = model.evaluate(test_dataset)
+print("\nTest Loss:", test_loss)
+print("Test Accuracy:", test_accuracy * 100, "%")
+
+
+# 13. Predict at Least 10 Individual Images
+class_names = train_dataset.class_names
+# Get one batch of test images
+for images, labels in test_dataset.take(1):
+    predictions = model.predict(images)
+    plt.figure(figsize=(15, 10))
+    for i in range(min(10, len(images))):
+        plt.subplot(2, 5, i + 1)
+        plt.imshow(images[i].numpy())
+        # Convert probability to class
+        predicted_class = 1 if predictions[i][0] >= 0.5 else 0
+        actual_class = labels[i].numpy()
+        predicted_label = class_names[predicted_class]
+        actual_label = class_names[actual_class]
+        plt.title(f"Actual: {actual_label}\nPredicted: {predicted_label}")
+        plt.axis("off")
+    plt.tight_layout()
+    plt.show()
+
+
+# 14. Identify Incorrect Predictions
+incorrect = 0
+total = 0
+for images, labels in test_dataset:
+    predictions = model.predict(images, verbose=0)
+    predicted_classes = (predictions >= 0.5).astype(int).flatten()
+    actual_classes = labels.numpy()
+    for predicted, actual in zip(predicted_classes, actual_classes):
+        total += 1
+        if predicted != actual:
+            incorrect += 1
+
+
+print("\nTotal Test Images:", total)
+print("Incorrect Predictions:", incorrect)
+
+
+# 15. Save the Trained Model
+model.save("cat_dog_cnn.keras")
+print("\nModel saved successfully as cat_dog_cnn.keras")
+
+
+#PRAC7
+# Titanic Dataset
+# TensorFlow / Keras
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import tensorflow as tf
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+
+# ---------------------------------------------------------
+# 1. Load Titanic Dataset
+# ---------------------------------------------------------
+data = sns.load_dataset("titanic")
+print("Dataset Shape:", data.shape)
+print("\nFirst 5 Rows:")
+print(data.head())
+
+
+# ---------------------------------------------------------
+# 2. Select Required Features
+# ---------------------------------------------------------
+data = data[[
+    "survived",
+    "pclass",
+    "sex",
+    "age",
+    "sibsp",
+    "parch",
+    "fare",
+    "embarked"
+]]
+
+
+# ---------------------------------------------------------
+# 3. Handle Missing Values
+# ---------------------------------------------------------
+data["age"] = data["age"].fillna(data["age"].median())
+data["fare"] = data["fare"].fillna(data["fare"].median())
+data["embarked"] = data["embarked"].fillna(data["embarked"].mode()[0])
+
+
+# ---------------------------------------------------------
+# 4. Encode Categorical Variables
+# ---------------------------------------------------------
+data = pd.get_dummies(
+    data,
+    columns=["sex", "embarked"],
+    drop_first=True
+)
+# Convert Boolean values to integers
+data = data.astype(float)
+
+
+# ---------------------------------------------------------
+# 5. Separate Features and Target
+# ---------------------------------------------------------
+X = data.drop("survived", axis=1)
+y = data["survived"]
+
+
+# ---------------------------------------------------------
+# 6. Train-Test Split
+# ---------------------------------------------------------
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+
+# ---------------------------------------------------------
+# 7. Feature Scaling
+# ---------------------------------------------------------
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+print("\nTraining Samples:", X_train.shape[0])
+print("Testing Samples:", X_test.shape[0])
+
+
+# =========================================================
+# MODEL 1: WITHOUT DROPOUT AND BATCH NORMALIZATION
+# =========================================================
+model_without = Sequential([
+    Dense(64, activation="relu", input_shape=(X_train.shape[1],)),
+    Dense(32, activation="relu"),
+    Dense(1, activation="sigmoid")
+])
+
+
+model_without.compile(
+    optimizer="adam",
+    loss="binary_crossentropy",
+    metrics=["accuracy"]
+)
+print("\nModel Without Dropout and Batch Normalization")
+model_without.summary()
+
+
+# ---------------------------------------------------------
+# 8. Train Model Without Techniques
+# ---------------------------------------------------------
+history_without = model_without.fit(
+    X_train,
+    y_train,
+    validation_split=0.2,
+    epochs=50,
+    batch_size=32,
+    verbose=1
+)
+
+
+# ---------------------------------------------------------
+# 9. Evaluate Model Without Techniques
+# ---------------------------------------------------------
+loss_without, accuracy_without = model_without.evaluate(
+    X_test,
+    y_test,
+    verbose=0
+)
+print("\nModel Without Dropout and Batch Normalization")
+print("Test Loss:", loss_without)
+print("Test Accuracy:", accuracy_without * 100, "%")
+
+
+# =========================================================
+# MODEL 2: WITH DROPOUT AND BATCH NORMALIZATION
+# =========================================================
+model_with = Sequential([
+    Dense(64, activation="relu", input_shape=(X_train.shape[1],)),
+    BatchNormalization(),
+    Dropout(0.3),
+    Dense(32, activation="relu"),
+    BatchNormalization(),
+    Dropout(0.3),
+    Dense(1, activation="sigmoid")
+])
+
+
+model_with.compile(
+    optimizer="adam",
+    loss="binary_crossentropy",
+    metrics=["accuracy"]
+)
+print("\nModel With Dropout and Batch Normalization")
+model_with.summary()
+
+
+# ---------------------------------------------------------
+# 10. Train Model With Techniques
+# ---------------------------------------------------------
+history_with = model_with.fit(
+    X_train,
+    y_train,
+    validation_split=0.2,
+    epochs=50,
+    batch_size=32,
+    verbose=1
+)
+
+
+# ---------------------------------------------------------
+# 11. Evaluate Model With Techniques
+# ---------------------------------------------------------
+loss_with, accuracy_with = model_with.evaluate(
+    X_test,
+    y_test,
+    verbose=0
+)
+print("\nModel With Dropout and Batch Normalization")
+print("Test Loss:", loss_with)
+print("Test Accuracy:", accuracy_with * 100, "%")
+
+
+# =========================================================
+# 12. Compare Training Accuracy
+# =========================================================
+plt.figure(figsize=(8, 5))
+plt.plot(
+    history_without.history["accuracy"],
+    label="Without Dropout/BatchNorm"
+)
+plt.plot(
+    history_with.history["accuracy"],
+    label="With Dropout/BatchNorm"
+)
+plt.title("Training Accuracy Comparison")
+plt.xlabel("Epoch")
+plt.ylabel("Accuracy")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+# ---------------------------------------------------------
+# 13. Compare Validation Accuracy
+# ---------------------------------------------------------
+plt.figure(figsize=(8, 5))
+plt.plot(
+    history_without.history["val_accuracy"],
+    label="Without Dropout/BatchNorm"
+)
+plt.plot(
+    history_with.history["val_accuracy"],
+    label="With Dropout/BatchNorm"
+)
+plt.title("Validation Accuracy Comparison")
+plt.xlabel("Epoch")
+plt.ylabel("Validation Accuracy")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+# ---------------------------------------------------------
+# 14. Compare Training Loss
+# ---------------------------------------------------------
+plt.figure(figsize=(8, 5))
+plt.plot(
+    history_without.history["loss"],
+    label="Without Dropout/BatchNorm"
+)
+plt.plot(
+    history_with.history["loss"],
+    label="With Dropout/BatchNorm"
+)
+plt.title("Training Loss Comparison")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+# ---------------------------------------------------------
+# 15. Compare Validation Loss
+# ---------------------------------------------------------
+plt.figure(figsize=(8, 5))
+plt.plot(
+    history_without.history["val_loss"],
+    label="Without Dropout/BatchNorm"
+)
+plt.plot(
+    history_with.history["val_loss"],
+    label="With Dropout/BatchNorm"
+)
+plt.title("Validation Loss Comparison")
+plt.xlabel("Epoch")
+plt.ylabel("Validation Loss")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+# ---------------------------------------------------------
+# 16. Final Comparison
+# ---------------------------------------------------------
+comparison = pd.DataFrame({
+    "Model": [
+        "Without Dropout & Batch Normalization",
+        "With Dropout & Batch Normalization"
+    ],
+    "Test Loss": [
+        loss_without,
+        loss_with
+    ],
+    "Test Accuracy": [
+        accuracy_without * 100,
+        accuracy_with * 100
+    ]
+})
+print("\nFinal Model Comparison:")
+print(comparison)
