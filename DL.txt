@@ -158,240 +158,105 @@ plt.show()
 
 
 #6 prac
+# CNN on MNIST Dataset
 
-# Install (if needed) - uncomment the line below when running for the first time
-# !pip install tensorflow matplotlib seaborn numpy pandas scikit-learn
-
-# Core Libraries
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-# TensorFlow / Keras
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+from sklearn.metrics import confusion_matrix, classification_report
 
-# Scikit-learn utilities for evaluation
-from sklearn.metrics import classification_report, confusion_matrix
-
-# Reproducibility: fix random seeds so results are consistent across runs
-np.random.seed(42)
-# tf.random.set_seed(42)
-
-print("TensorFlow version:", tf.__version__)
-
-# Load MNIST: 60,000 training images + 10,000 test images, each 28x28 grayscale
+# Load dataset
 (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
 
-# Quick shape check
-print("Training data shape:", x_train.shape)
-print("Training labels shape:", y_train.shape)
-print("Test data shape:", x_test.shape)
-print("Test labels shape:", y_test.shape)
-
-# Pixel value range before normalization
-print("Min pixel value:", x_train.min())
-print("Max pixel value:", x_train.max())
-
-# Unique classes (digits 0-9)
-print("Unique labels:", np.unique(y_train))
-
-# Check for missing/NaN values (unlikely in MNIST, but good practice)
-print("Any NaNs in training data:", np.isnan(x_train).any())
-
-# Count occurrences of each digit class in the training set
-unique, counts = np.unique(y_train, return_counts=True)
-class_counts = pd.DataFrame({"Digit": unique, "Count": counts})
-print(class_counts)
-
-# Bar plot of class distribution
-plt.figure(figsize=(8, 5))
-sns.barplot(x="Digit", y="Count", data=class_counts, palette="viridis")
-plt.title("Class Distribution in MNIST Training Set")
-plt.xlabel("Digit")
-plt.ylabel("Number of Samples")
-plt.show()
-
-# Display a grid of sample digits with their labels
-plt.figure(figsize=(10, 4))
-for i in range(10):
-    plt.subplot(2, 5, i + 1)
-    plt.imshow(x_train[i], cmap="gray")  # grayscale display
-    plt.title(f"Label: {y_train[i]}")
-    plt.axis("off")
-plt.tight_layout()
-plt.show()
-
-# Histogram of pixel intensities across a sample of images
-plt.figure(figsize=(8, 5))
-plt.hist(x_train[:1000].flatten(), bins=30, color="steelblue")
-plt.title("Pixel Intensity Distribution (sample of 1000 images)")
-plt.xlabel("Pixel Value (0-255)")
-plt.ylabel("Frequency")
-plt.show()
-
-fig, axes = plt.subplots(2, 5, figsize=(10, 4))
-for digit in range(10):
-    avg_img = x_train[y_train == digit].mean(axis=0)  # mean image for this class
-    ax = axes[digit // 5, digit % 5]
-    ax.imshow(avg_img, cmap="gray")
-    ax.set_title(f"Avg: {digit}")
-    ax.axis("off")
-plt.tight_layout()
-plt.show()
-
-# Normalize pixel values from [0, 255] to [0, 1] — helps the network train faster and more stably
+# Normalize and reshape images
 x_train = x_train.astype("float32") / 255.0
 x_test = x_test.astype("float32") / 255.0
 
-# CNNs expect a channel dimension: (height, width, channels)
-# MNIST is grayscale, so channels = 1
-x_train = np.expand_dims(x_train, axis=-1)  # shape becomes (60000, 28, 28, 1)
-x_test = np.expand_dims(x_test, axis=-1)  # shape becomes (10000, 28, 28, 1)
+x_train = x_train[..., np.newaxis]
+x_test = x_test[..., np.newaxis]
 
-print("New training shape:", x_train.shape)
-
-# One-hot encode the labels (e.g. 3 -> [0,0,0,1,0,0,0,0,0,0])
-# This matches the 'categorical_crossentropy' loss used later
-num_classes = 10
-y_train_cat = keras.utils.to_categorical(y_train, num_classes)
-y_test_cat = keras.utils.to_categorical(y_test, num_classes)
-
-print("Example Label before encoding:", y_train[0])
-print("Example label after encoding:", y_train_cat[0])
-
-from sklearn.model_selection import train_test_split
-
-# Carve out 10% of training data for validation during training
-x_train_final, x_val, y_train_final, y_val = train_test_split(
-    x_train, y_train_cat, test_size=0.1, random_state=42, stratify=y_train
-)
-
-print("Final training set:", x_train_final.shape)
-print("Validation set:", x_val.shape)
-
+# Build CNN model
 model = keras.Sequential([
-    # Input layer: expects 28x28 grayscale images
     layers.Input(shape=(28, 28, 1)),
-
-    # First convolutional block
-    layers.Conv2D(32, kernel_size=(3, 3), activation="relu", padding="same"),
-    layers.BatchNormalization(),  # stabilizes and speeds up training
-    layers.Conv2D(32, kernel_size=(3, 3), activation="relu", padding="same"),
-    layers.MaxPooling2D(pool_size=(2, 2)),  # downsamples feature maps, reduces computation
-    layers.Dropout(0.25),  # randomly drops 25% of units to reduce overfitting
-
-    # Second convolutional block
-    layers.Conv2D(64, kernel_size=(3, 3), activation="relu", padding="same"),
-    layers.BatchNormalization(),
-    layers.Conv2D(64, kernel_size=(3, 3), activation="relu", padding="same"),
-    layers.MaxPooling2D(pool_size=(2, 2)),
-    layers.Dropout(0.25),
-
-    # Flatten feature maps into a 1D vector for the dense layers
+    layers.Conv2D(32, (3, 3), activation="relu"),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(64, (3, 3), activation="relu"),
+    layers.MaxPooling2D((2, 2)),
     layers.Flatten(),
-
-    # Fully connected classification head
     layers.Dense(128, activation="relu"),
-    layers.BatchNormalization(),
-    layers.Dropout(0.5),  # stronger dropout before final layer
-
-    # Output layer: 10 units (one per digit), softmax gives class probabilities
-    layers.Dense(num_classes, activation="softmax")
+    layers.Dropout(0.5),
+    layers.Dense(10, activation="softmax")
 ])
 
-# Print a summary of layers, output shapes, and parameter counts
 model.summary()
 
+# Compile model
 model.compile(
-    optimizer=keras.optimizers.Adam(learning_rate=0.001),  # adaptive learning rate optimizer
-    loss="categorical_crossentropy",  # standard loss for multi-class, one-hot labels
-    metrics=["accuracy"]  # track accuracy during training
+    optimizer="adam",
+    loss="sparse_categorical_crossentropy",
+    metrics=["accuracy"]
 )
 
-# Stop training early if validation loss stops improving, and restore the best weights
-early_stop = keras.callbacks.EarlyStopping(
-    monitor="val_loss", patience=5, restore_best_weights=True
-)
-
-# Reduce learning rate when validation loss plateaus
-reduce_lr = keras.callbacks.ReduceLROnPlateau(
-    monitor="val_loss", factor=0.5, patience=2, min_lr=1e-6
-)
-
+# Train model
 history = model.fit(
-    x_train_final, y_train_final,
-    validation_data=(x_val, y_val),
-    epochs=100,
+    x_train, y_train,
+    epochs=1,
     batch_size=128,
-    callbacks=[early_stop, reduce_lr],
-    verbose=1
+    validation_split=0.1
 )
 
-fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+# Plot accuracy and loss
+plt.figure(figsize=(10, 4))
 
-# Accuracy curves
-axes[0].plot(history.history["accuracy"], label="Train Accuracy")
-axes[0].plot(history.history["val_accuracy"], label="Validation Accuracy")
-axes[0].set_title("Accuracy over Epochs")
-axes[0].set_xlabel("Epoch")
-axes[0].set_ylabel("Accuracy")
-axes[0].legend()
+plt.subplot(1, 2, 1)
+plt.plot(history.history["accuracy"], label="Training")
+plt.plot(history.history["val_accuracy"], label="Validation")
+plt.title("Model Accuracy")
+plt.legend()
 
-# Loss curves
-axes[1].plot(history.history["loss"], label="Train Loss")
-axes[1].plot(history.history["val_loss"], label="Validation Loss")
-axes[1].set_title("Loss over Epochs")
-axes[1].set_xlabel("Epoch")
-axes[1].set_ylabel("Loss")
-axes[1].legend()
+plt.subplot(1, 2, 2)
+plt.plot(history.history["loss"], label="Training")
+plt.plot(history.history["val_loss"], label="Validation")
+plt.title("Model Loss")
+plt.legend()
 
 plt.tight_layout()
 plt.show()
 
-# Overall test loss and accuracy
-test_loss, test_acc = model.evaluate(x_test, y_test_cat, verbose=0)
-print(f"Test Accuracy: {test_acc:.4f}")
-print(f"Test Loss: {test_loss:.4f}")
+# Evaluate model
+loss, accuracy = model.evaluate(x_test, y_test, verbose=0)
+print("Test Accuracy:", accuracy)
+print("Test Loss:", loss)
 
-# Generate predictions (probabilities -> class labels)
-y_pred_probs = model.predict(x_test)
-y_pred = np.argmax(y_pred_probs, axis=1)
+# Predictions
+y_pred = np.argmax(model.predict(x_test, verbose=0), axis=1)
 
-# Detailed per-class metrics: precision, recall, F1-score
 print(classification_report(y_test, y_pred))
 
+# Confusion matrix
 cm = confusion_matrix(y_test, y_pred)
-
-plt.figure(figsize=(8, 6))
-sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=range(10), yticklabels=range(10))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
 plt.title("Confusion Matrix")
-plt.xlabel("Predicted Label")
-plt.ylabel("True Label")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
 plt.show()
 
-# Find indices where prediction != true label
-misclassified_idx = np.where(y_pred != y_test)[0]
-print(f"Number of misclassified images: {len(misclassified_idx)}")
-
-# Plot a sample of misclassified digits
+# Display sample predictions
 plt.figure(figsize=(10, 4))
-for i, idx in enumerate(misclassified_idx[:10]):
+for i in range(10):
     plt.subplot(2, 5, i + 1)
-    plt.imshow(x_test[idx].squeeze(), cmap="gray")
-    plt.title(f"True: {y_test[idx]}, Pred: {y_pred[idx]}")
+    plt.imshow(x_test[i].squeeze(), cmap="gray")
+    plt.title(f"Pred: {y_pred[i]}")
     plt.axis("off")
+
 plt.tight_layout()
 plt.show()
 
-# Save the trained model for later reuse (inference or fine-tuning)
+# Save model
 model.save("mnist_cnn_model.keras")
-
-# To reload later:
-# loaded_model = keras.models.load_model("mnist_cnn_model.keras")
-
 
 #PRAC7
 # Titanic Dataset
