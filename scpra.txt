@@ -1,0 +1,303 @@
+﻿#prac1
+import numpy as np
+
+
+# Binary sigmoid activation
+def binary_sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+
+# Bipolar sigmoid activation
+def bipolar_sigmoid(x):
+    return (1 - np.exp(-x)) / (1 + np.exp(-x))
+
+
+# Neural network calculation
+def neural_net_output(x, w, b):
+    # Net input
+    net = np.dot(x, w) + b
+    # Apply activation functions
+    out_binary = binary_sigmoid(net)
+    out_bipolar = bipolar_sigmoid(net)
+    return net, out_binary, out_bipolar
+
+
+# Example
+if __name__ == "__main__":
+    # Inputs
+    x = np.array([0.5, -1.5]) # Input vector
+    w = np.array([0.7, -1.2]) # Weights
+    b = 0.3 # Bias
+    net, out_binary, out_bipolar = neural_net_output(x, w, b)
+    print(f"Net input: {net:.4f}")
+    print(f"Binary Sigmoid Output: {out_binary:.4f}")
+    print(f"Bipolar Sigmoid Output: {out_bipolar:.4f}")
+
+
+#PRAC2
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+# Define a simple linear neural network model (y = Wx + b)
+class SimpleLinearNN:
+    def __init__(self, input_size, output_size, learning_rate=0.01):
+        # Initialize weights (W) and bias (b) randomly
+        self.W = np.random.randn(input_size, output_size)
+        self.b = np.zeros((1, output_size))
+        self.lr = learning_rate
+        self.loss_history = []
+
+
+    def forward(self, X):
+        """Compute output y = XW + b"""
+        return np.dot(X, self.W) + self.b
+
+
+    def compute_loss(self, y_pred, y_true):
+        """Mean Squared Error"""
+        return np.mean((y_pred - y_true) ** 2)
+
+
+    def backward(self, X, y_true, y_pred):
+        """Update weights using gradient descent"""
+        m = X.shape[0]  # number of samples
+        dW = (2 / m) * np.dot(X.T, (y_pred - y_true))
+        db = (2 / m) * np.sum(y_pred - y_true, axis=0, keepdims=True)
+        # Update parameters
+        self.W -= self.lr * dW
+        self.b -= self.lr * db
+
+
+    def train(self, X, y, epochs=100):
+        """Training loop"""
+        for epoch in range(epochs):
+            # Forward pass
+            y_pred = self.forward(X)
+            # Compute loss
+            loss = self.compute_loss(y_pred, y)
+            self.loss_history.append(loss)
+            # Backward pass
+            self.backward(X, y, y_pred)
+            # Print progress
+            if (epoch + 1) % 20 == 0:
+                print(f"Epoch {epoch+1}/{epochs}, Loss: {loss:.4f}")
+
+
+    def plot_loss(self):
+        """Plot training loss over epochs"""
+        plt.plot(self.loss_history, label="Training Loss")
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss (MSE)")
+        plt.title("Loss Curve")
+        plt.legend()
+        plt.show()
+
+
+# Example usage
+if __name__ == "__main__":
+    # Dummy training data: y = 2x + 1
+    X_train = np.array([[1], [2], [3], [4]])
+    y_train = np.array([[3], [5], [7], [9]])
+
+
+    # Create and train model
+    model = SimpleLinearNN(input_size=1, output_size=1, learning_rate=0.01)
+    model.train(X_train, y_train, epochs=100)
+
+
+    # Plot the loss curve
+    model.plot_loss()
+
+
+    # Test prediction
+    test_input = np.array([[5]])
+    predicted = model.forward(test_input)
+    print(f"Prediction for input 5: {predicted[0][0]:.2f}")
+#PRAC4
+import numpy as np
+
+
+# 1. Define the training data (Bipolar AND Gate)
+# Inputs: [x1, x2]
+X = np.array([
+    [1, 1],
+    [1, -1],
+    [-1, 1],
+    [-1, -1]
+])
+
+
+# Target outputs
+Y = np.array([1, -1, -1, -1])
+
+
+# 2. Initialize weights and bias to zero
+weights = np.zeros(X.shape[1])
+bias = 0.0
+
+
+print("Initial Weights:", weights)
+print("Initial Bias:", bias)
+print("-" * 40)
+
+
+# 3. Apply Hebbian Learning Rule
+for i in range(len(X)):
+    x = X[i]
+    y = Y[i]
+    
+    # Update weights and bias: w_new = w_old + x * y
+    weights += x * y
+    bias += y
+    
+    print(f"Step {i+1} -> Input: {x}, Target: {y}")
+    print(f"Updated Weights: {weights}, Updated Bias: {bias}")
+    print("-" * 40)
+
+
+print("Final Weights:", weights)
+print("Final Bias:", bias)
+
+
+# 4. Testing the trained model
+print("\n--- Testing the Model ---")
+for x in X:
+    net_input = np.dot(x, weights) + bias
+    # Activation function (Sign function for bipolar output)
+    output = 1 if net_input >= 0 else -1
+    print(f"Input: {x} -> Predicted Output: {output}")
+
+
+
+
+#PRAC8
+#TDNN
+import numpy as np
+
+
+def create_tdnn_dataset(data, delay):
+    X, y = [], []
+    for i in range(len(data) - delay):
+        X.append(data[i:(i + delay)])
+        y.append(data[i + delay])
+    return np.array(X), np.array(y)
+
+
+# Example: Predicting a simple sequence
+series = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+delay = 3
+X_train, y_train = create_tdnn_dataset(series, delay)
+
+
+# Simple weights for demonstration
+np.random.seed(1)
+weights = np.random.rand(delay)
+bias = np.random.rand(1)
+
+
+# Prediction (Forward Pass)
+def predict_tdnn(X, w, b):
+    return np.dot(X, w) + b
+
+
+preds = predict_tdnn(X_train, weights, bias)
+print("TDNN Inputs (windows):\n", X_train)
+print("TDNN Predictions:\n", preds)
+
+
+#PRAC8
+#FDNN
+import numpy as np
+
+
+def functional_expansion(X):
+    # Expanding using [x, sin(pi*x), cos(pi*x)]
+    expansion = [X, np.sin(np.pi * X), np.cos(np.pi * X)]
+    return np.hstack(expansion)
+
+
+# Input data
+X_flnn = np.array([[0.1], [0.5], [0.9]])
+
+
+# Expand features
+X_expanded = functional_expansion(X_flnn)
+
+
+# Single layer weights (for 3 expanded features)
+flnn_weights = np.random.rand(3, 1)
+flnn_bias = np.random.rand(1)
+
+
+# Forward Pass
+flnn_output = np.dot(X_expanded, flnn_weights) + flnn_bias
+
+
+print("Original Input:\n", X_flnn)
+print("Expanded Features:\n", X_expanded)
+print("FLNN Output:\n", flnn_output)
+
+
+
+
+#PRAC10
+import numpy as np
+
+
+class HopfieldNetwork:
+    def __init__(self, size):
+        self.size = size
+        self.weights = np.zeros((size, size))
+
+
+    def train(self, patterns):
+        """
+        Train network on given patterns using Hebbian learning.
+        patterns: list or array of binary patterns (-1, 1)
+        """
+        for p in patterns:
+            p = p.reshape(self.size, 1)
+            self.weights += p @ p.T
+        np.fill_diagonal(self.weights, 0) # no self-connection
+
+
+    def predict(self, pattern, max_iterations=10):
+        """
+        Recall a pattern from the network.
+        pattern: initial input pattern (-1, 1)
+        max_iterations: maximum updates before stopping
+        """
+        s = pattern.copy()
+        for _ in range(max_iterations):
+            for i in range(self.size):
+                raw = np.dot(self.weights[i], s)
+                s[i] = 1 if raw >= 0 else -1
+        return s
+
+
+# Example usage:
+# Define training patterns (bipolar)
+patterns = np.array([
+    [1, 1, 1, 1],
+    [1, -1, 1, -1],
+    [-1, 1, -1, 1]
+])
+
+
+# Initialize network
+net = HopfieldNetwork(size=4)
+
+
+# Train network
+net.train(patterns)
+
+
+# Test recall with a noisy version of the first pattern
+test_pattern = np.array([1, -1, -1, -1]) # noisy input
+
+
+print("Original:", patterns[0])
+print("Noisy Input:", test_pattern)
+recalled = net.predict(test_pattern)
+print("Recalled:", recalled)
